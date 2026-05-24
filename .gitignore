@@ -176,3 +176,12 @@ data/
 /apps/frontend/dist/
 *.pid
 .DS_Store
+
+test_results/*
+15_StressTest_Docs_for_Parser/*
+extraction_comparison/*
+
+# Credentials / secrets — NEVER commit these
+portal-data-bucket.json
+*.json.key
+.env.local

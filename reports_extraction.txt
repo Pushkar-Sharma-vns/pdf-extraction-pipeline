@@ -1,0 +1,30 @@
+PIPELINE SUMMARY: JII
+  PDFs processed   : 56/56
+  bengaluru_data   : 30
+  india_data       : 26
+  Chunks           : 119
+  Input tokens     : 450,490
+  Output tokens    : 427,961
+  Total cost       : $1.5091
+
+==================================================
+PIPELINE SUMMARY: Crematrix
+  PDFs processed   : 234/235
+  bengaluru_data   : 89
+  india_data       : 145
+  Chunks           : 342
+  Input tokens     : 1,111,513
+  Output tokens    : 1,125,893
+  Total cost       : $3.9334
+
+==================================================
+PIPELINE SUMMARY
+  PDFs processed   : 331/331
+  bengaluru_data   : 261
+  india_data       : 70
+  Chunks           : 528
+  Input tokens     : 2,026,407
+  Output tokens    : 3,119,597
+  Total cost       : $10.3720
+
+

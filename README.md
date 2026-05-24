@@ -310,6 +310,162 @@ class MyPipeline:
     pass
 ```
 
+## Custom Pipelines
+
+### Gemini OCR Pipeline (`gemini_ocr/`)
+
+Batch PDF extraction using Google Gemini, with GCS bucket integration and Bengaluru/India classification.
+
+#### Setup
+
+```bash
+pip install google-cloud-storage google-genai pymupdf
+```
+
+Configure `.env` at the project root:
+
+```env
+GEMINI_API_KEY=your-gemini-api-key
+GCS_CREDENTIALS=portal-data-bucket.json
+GCS_BUCKET=re_reports
+```
+
+#### Commands
+
+```bash
+# Dry run — list PDFs without processing
+./venv/bin/python -m gemini_ocr.pipeline --dry-run
+
+# Process one source
+./venv/bin/python -m gemini_ocr.pipeline --source jll
+
+# Process a single PDF
+./venv/bin/python -m gemini_ocr.pipeline --blob jll/pdfs/report.pdf
+
+# Parallel workers (3x faster)
+./venv/bin/python -m gemini_ocr.pipeline --source cushman --workers 3
+
+# Resume interrupted batch (skips already-uploaded PDFs)
+./venv/bin/python -m gemini_ocr.pipeline --source cushman --workers 3 --resume
+
+# Classify PDFs only (bengaluru vs india, no extraction, free)
+./venv/bin/python -m gemini_ocr.pipeline --source jll --classify-only
+```
+
+Output lands at: `gs://<bucket>/<source>/extracted_pdfs/{bengaluru_data|india_data}/<pdfname>_gemini.md`
+
+---
+
+### GLM-OCR Post-Processing Pipeline (`glm_postprocess/`)
+
+End-to-end pipeline: GLM-OCR parse → image extraction (polygon-based cropping) → GCS upload → image classification.
+
+#### Backend Configuration (`config.yaml`)
+
+GLM-OCR needs an inference backend for text recognition. Two options:
+
+**vLLM (recommended — faster, supports batching):**
+
+```yaml
+# config.yaml
+pipeline:
+  maas:
+    enabled: false
+  layout:
+    model_dir: 'PaddlePaddle/PP-DocLayoutV3_safetensors'
+  ocr_api:
+    api_host: localhost       # or EC2 IP for remote GPU
+    api_port: 8080
+    api_path: /v1/chat/completions
+    model: glm-ocr
+    api_mode: openai
+```
+
+Start vLLM (on GPU machine):
+
+```bash
+pip install "vllm>=0.19.0" "transformers>=5.3.0"
+
+vllm serve zai-org/GLM-OCR \
+  --port 8080 \
+  --speculative-config '{"method": "mtp", "num_speculative_tokens": 3}' \
+  --served-model-name glm-ocr \
+  --gpu-memory-utilization 0.9
+```
+
+**Ollama (fallback — simpler setup, slower):**
+
+```yaml
+# config.yaml (or copy config_ollama.yaml → config.yaml)
+pipeline:
+  maas:
+    enabled: false
+  layout:
+    model_dir: 'PaddlePaddle/PP-DocLayoutV3_safetensors'
+  ocr_api:
+    api_host: localhost
+    api_port: 11434
+    api_path: /api/generate
+    model: glm-ocr:latest
+    api_mode: ollama_generate
+```
+
+Start Ollama with parallel support:
+
+```bash
+OLLAMA_NUM_PARALLEL=4 ollama serve
+ollama run glm-ocr
+```
+
+#### Phase 1: Extract Images (Local Mode)
+
+Process existing GLM-OCR results in `test_results/`:
+
+```bash
+./venv/bin/python -m glm_postprocess.orchestrator --local --min-size 100
+```
+
+#### Phase 1: Extract Images (GCS Mode)
+
+Reads already Gemini-extracted PDFs from GCS, downloads the original PDF, runs GLM-OCR, extracts images, uploads back:
+
+```bash
+# Process all PDFs from a source (parallel with vLLM)
+./venv/bin/python -m glm_postprocess.orchestrator --source jll --workers 8
+
+# Resume (skip PDFs with existing images in GCS)
+./venv/bin/python -m glm_postprocess.orchestrator --source savills --resume --workers 8
+
+# Dry run — list what would be processed
+./venv/bin/python -m glm_postprocess.orchestrator --source savills --dry-run
+```
+
+Output: `gs://<bucket>/<source>/extracted_pdfs/{bengaluru_data|india_data}/<pdfname>_extracted_images/`
+
+Image naming: `page<N>_<label>_idx<I>.jpg` (1-based page, label type, item index from GLM-OCR JSON).
+
+#### Phase 2: Classify Images
+
+Async Gemini classification — determines if each extracted image is relevant to real estate. Uses 20 concurrent async workers via `asyncio.Semaphore`.
+
+```bash
+# Run Phase 2 standalone on already-uploaded images
+./venv/bin/python -m glm_postprocess.classifier --source jll --workers 20
+
+# Or chain Phase 1 + Phase 2 in one command
+./venv/bin/python -m glm_postprocess.orchestrator --source jll --workers 8 --classify
+
+# Classify-only mode (no extraction)
+./venv/bin/python -m glm_postprocess.orchestrator --classify-only --source jll
+
+# Resume (skip folders that already have classification_results.json)
+./venv/bin/python -m glm_postprocess.classifier --source jll --resume
+```
+
+Output: `classification_results.json` saved in the same GCS folder as images.
+
+---
+
 ## Star History
 
 <a href="https://www.star-history.com/?repos=zai-org%2FGLM-OCR&type=date&legend=top-left">
