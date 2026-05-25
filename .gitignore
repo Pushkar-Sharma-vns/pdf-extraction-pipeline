@@ -184,4 +184,10 @@ extraction_comparison/*
 # Credentials / secrets — NEVER commit these
 portal-data-bucket.json
 *.json.key
+*.pem
 .env.local
+
+# Test artifacts
+extraction_comparison.zip
+extraction_results.md
+*.pdf

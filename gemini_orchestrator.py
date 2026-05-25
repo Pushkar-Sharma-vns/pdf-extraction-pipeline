@@ -17,7 +17,9 @@ import fitz  # PyMuPDF
 from google import genai
 from google.genai import types
 
-GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyCeju1K1ik-wxQvC9ErLI4xW-ZIVI3PpWc")
+from dotenv import load_dotenv
+load_dotenv()
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 GEMINI_MODEL = "gemini-3-flash-preview"
 
 PDF_DIR = Path("15_StressTest_Docs_for_Parser")

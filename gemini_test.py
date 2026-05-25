@@ -3,7 +3,10 @@ from google import genai
 from google.genai import types
 
 # --- Setup ---
-GEMINI_API_KEY = "AIzaSyCeju1K1ik-wxQvC9ErLI4xW-ZIVI3PpWc"
+import os
+from dotenv import load_dotenv
+load_dotenv()
+GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
 PDF_PATH = "india-real-estate-office-and-residential-market-jan-mar-2026-12790.pdf"
 
 # 2026 Pricing Constants (USD per 1M tokens)
