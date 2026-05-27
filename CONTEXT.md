@@ -79,12 +79,15 @@ python -m glm_postprocess.orchestrator --source jll --category bengaluru_data --
 # Phase 1 only
 python -m glm_postprocess.orchestrator --source jll --workers 8
 
-# Phase 2 only (on already-uploaded images)
-python -m glm_postprocess.classifier --source jll --workers 20
+# Phase 2 only (on already-uploaded images, bengaluru only)
+python -m glm_postprocess.classifier --source jll --category bengaluru_data --workers 20
 
 # Resume interrupted runs
-python -m glm_postprocess.orchestrator --source jll --resume --workers 8
-python -m glm_postprocess.classifier --source jll --resume
+python -m glm_postprocess.orchestrator --source jll --category bengaluru_data --resume --workers 8
+python -m glm_postprocess.classifier --source jll --category bengaluru_data --resume
+
+# Classify a single folder directly
+python -m glm_postprocess.classifier --folder jll/extracted_pdfs/bengaluru_data/report_extracted_images
 ```
 
 ## 5. GLM-OCR Backend: Ollama (Local) vs vLLM (Prod)
@@ -136,22 +139,88 @@ glm_postprocess/           # GLM-OCR image extraction + classification
   config.py               # PICTORIAL_LABELS, NORM, GLMOCR_BIN
   image_extractor.py      # Polygon-based cropping from layout_vis
   gcs_upload.py           # Image upload to GCS + classify_pdf re-export
-  classifier.py           # Phase 2: async Gemini image classification
+  classifier.py           # Phase 2: async Gemini image classification (retry + parallel download)
   orchestrator.py         # CLI: Phase 1 → Phase 2 end-to-end
 
-Root scripts (legacy):
-  extract_images.py       # Original standalone image extractor
-  enrich_report.py        # Qwen2.5-VL enrichment (MLX, Apple Silicon only)
-  hybrid_orchestrator.py  # Original batch GLM-OCR + enrich runner
+rag_enrichment/            # Contextual chunking + metadata extraction for RAG
+  schema.py               # 25+ field Pydantic schema with strict Literal enums
+  prompts.py              # Zero-hallucination extraction prompt
+  chunker.py              # Split markdown on <!-- page N --> markers
+  processor.py            # Gemini context caching + async parallel chunk extraction
+  orchestrator.py         # CLI: GCS list → download → chunk → process → upload JSON+Excel
+
+Root scripts:
+  link_assets.py          # Match classified images → RAG metadata linked_assets by page
+  extract_images.py       # Original standalone image extractor (legacy)
+  enrich_report.py        # Qwen2.5-VL enrichment, MLX Apple Silicon only (legacy)
+  hybrid_orchestrator.py  # Original batch GLM-OCR + enrich runner (legacy)
 ```
 
-## 7. Test Results (5 JLL Bengaluru PDFs)
+## 6a. RAG Enrichment Pipeline
 
-| PDF | Images Extracted | Relevant | Not Relevant |
-|---|---|---|---|
-| asia-pacific-capital-tracker-autumn-2025 | 73 | 72 | 1 |
-| asia-pacific-capital-tracker | 71 | 69 | 2 |
-| india-data-centre-market-dynamics-h1-2025 | 38 | 18 | 20 |
+Page-wise chunking + contextual metadata extraction for Qdrant RAG:
+1. Download `_gemini.md` from GCS
+2. Split into page chunks (`<!-- page N -->` markers)
+3. Create Gemini context cache with full report (tokens paid once)
+4. Async parallel extraction (10 concurrent) — 25+ structured fields per chunk via Pydantic schema
+5. Retry failed chunks (2 retries with backoff)
+6. Upload `_rag_metadata.json` + `_rag_metadata.xlsx` to GCS
+
+```bash
+python -m rag_enrichment.orchestrator --source jll --category bengaluru_data --limit 1 --local-output rag_enrichment/output
+python -m rag_enrichment.orchestrator --source jll --resume
+```
+
+## 6b. Link Assets Script
+
+Matches classified images to RAG metadata records by PDF stem + page number.
+Replaces `linked_assets` (which has `image_url: null` from Gemini) with actual GCS image URLs + classification data from Phase 2.
+
+```bash
+python link_assets.py --source jll
+python link_assets.py --source cushman --dry-run
+```
+
+## 7. End-to-End Pipeline Order
+
+```
+Step 1: Gemini PDF extraction        → _gemini.md in GCS
+        python -m gemini_ocr.pipeline --source jll --workers 3
+
+Step 2: GLM-OCR image extraction     → _extracted_images/ in GCS
+        python -m glm_postprocess.orchestrator --source jll --category bengaluru_data --workers 3
+
+Step 3: Image classification         → classification_results.json in GCS
+        python -m glm_postprocess.classifier --source jll --category bengaluru_data --workers 20
+
+Step 4: RAG metadata extraction      → _rag_metadata.json + .xlsx in GCS
+        python -m rag_enrichment.orchestrator --source jll --category bengaluru_data
+
+Step 5: Link classified images       → updates linked_assets in _rag_metadata.json
+        python link_assets.py --source jll
+```
+
+## 8. Test Results
+
+### Image Classification (All 4 Sources — Bengaluru Data)
+
+| Source | Folders | Images | Relevant | Not Relevant | Errors | Time |
+|---|---|---|---|---|---|---|
+| jll | 13 | 367 | 309 (84%) | 58 | 0 | 209s |
+| cushman | 31 | 138 | 122 (88%) | 16 | 0 | 229s |
+| crematrix | 3 | 19 | 14 (74%) | 5 | 0 | 34s |
+| savills | 2 | 18 | 15 (83%) | 3 | 0 | 75s |
+| **Total** | **49** | **542** | **460 (85%)** | **82** | **0** | **547s** |
+
+### RAG Enrichment (1 JLL Report Test)
+
+| Metric | Value |
+|---|---|
+| Pages chunked | 37 |
+| Records extracted | 37 (async, 10 concurrent) |
+| Failed | 0 (retry recovered 1) |
+| Time | 77s |
+| Linked images | 72 across 34 pages |
 | india-retail-market-dynamics-q1-2025 | 12 | 8 | 4 |
 | pulse-real-estate-monthly-monitor-apr-2025 | 37 | 35 | 2 |
 | **Total** | **231** | **202 (87%)** | **29** |

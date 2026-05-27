@@ -1,14 +1,13 @@
 """Phase 2 — Async image classification using Gemini.
 
-Reads extracted images from GCS via gs:// URIs, classifies each as
-relevant to real estate or not, and uploads classification_results.json
-back to the same GCS folder.
+Reads extracted images from GCS, classifies each as relevant to real estate
+or not, and uploads classification_results.json back to the same GCS folder.
 
 Usage:
-    python -m glm_postprocess.classifier --source jll --dry-run
-    python -m glm_postprocess.classifier --source cushman --workers 20
+    python -m glm_postprocess.classifier --source jll --category bengaluru_data
+    python -m glm_postprocess.classifier --source cushman --workers 20 --resume
     python -m glm_postprocess.classifier --folder cushman/extracted_pdfs/bengaluru_data/report_extracted_images
-    python -m glm_postprocess.classifier --source savills --resume --workers 20
+    python -m glm_postprocess.classifier --dry-run --source jll
 """
 
 import argparse
@@ -16,6 +15,9 @@ import asyncio
 import json
 import sys
 import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from pathlib import Path
 
 from google import genai
@@ -27,6 +29,8 @@ from gemini_ocr.gcs_client import _client, upload_file
 
 CLASSIFY_MODEL = "gemini-2.5-flash"
 CONCURRENT_DEFAULT = 20
+MAX_RETRIES = 2
+RETRY_DELAY = 2
 
 PROMPT = (
     "Analyze this image extracted from a real estate market report. "
@@ -46,11 +50,11 @@ class ImageClassification(BaseModel):
     reasoning: str = Field(description="Brief sentence explaining the classification")
 
 
-def list_image_folders(source: str) -> list[str]:
-    """List all <pdfname>_extracted_images/ prefixes under a source."""
+def list_image_folders(source: str, category: str = None) -> list[str]:
     client = _client()
     folders = set()
-    for cat in ("bengaluru_data", "india_data"):
+    categories = [category] if category else ["bengaluru_data", "india_data"]
+    for cat in categories:
         prefix = f"{source}/extracted_pdfs/{cat}/"
         blobs = client.list_blobs(GCS_BUCKET, prefix=prefix, delimiter="/")
         list(blobs)
@@ -61,7 +65,6 @@ def list_image_folders(source: str) -> list[str]:
 
 
 def list_images_in_folder(folder_prefix: str) -> list[str]:
-    """List all image blob names in a folder prefix."""
     client = _client()
     return [
         b.name
@@ -71,7 +74,6 @@ def list_images_in_folder(folder_prefix: str) -> list[str]:
 
 
 def folder_has_results(folder_prefix: str) -> bool:
-    """Check if classification_results.json already exists in the folder."""
     client = _client()
     blobs = list(client.list_blobs(
         GCS_BUCKET,
@@ -81,46 +83,55 @@ def folder_has_results(folder_prefix: str) -> bool:
     return len(blobs) > 0
 
 
-def _download_image_bytes(blob_name: str) -> bytes:
-    """Download image from GCS as raw bytes."""
-    bucket = _client().bucket(GCS_BUCKET)
-    return bucket.blob(blob_name).download_as_bytes()
+def _download_images_parallel(blob_names: list[str], max_threads: int = 10) -> list[tuple[str, bytes]]:
+    """Download images from GCS in parallel using threads."""
+    def _dl(name):
+        bucket = _client().bucket(GCS_BUCKET)
+        data = bucket.blob(name).download_as_bytes()
+        return (f"gs://{GCS_BUCKET}/{name}", data)
+
+    with ThreadPoolExecutor(max_workers=max_threads) as pool:
+        return list(pool.map(_dl, blob_names))
 
 
 async def classify_single_image(aclient, semaphore, gcs_uri: str, image_bytes: bytes) -> dict:
-    async with semaphore:
-        try:
-            image_part = types.Part.from_bytes(
-                data=image_bytes,
-                mime_type="image/jpeg",
-            )
-            response = await aclient.models.generate_content(
-                model=CLASSIFY_MODEL,
-                contents=[image_part, PROMPT],
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                    response_schema=ImageClassification,
-                    temperature=0.1,
-                ),
-            )
-            result = json.loads(response.text)
-            result["gcs_uri"] = gcs_uri
-            return result
-        except Exception as e:
-            return {"gcs_uri": gcs_uri, "error": str(e), "is_relevant": False}
+    last_error = None
+    for attempt in range(MAX_RETRIES + 1):
+        async with semaphore:
+            try:
+                image_part = types.Part.from_bytes(
+                    data=image_bytes,
+                    mime_type="image/jpeg",
+                )
+                response = await aclient.models.generate_content(
+                    model=CLASSIFY_MODEL,
+                    contents=[image_part, PROMPT],
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=ImageClassification,
+                        temperature=0.1,
+                    ),
+                )
+                result = json.loads(response.text)
+                result["gcs_uri"] = gcs_uri
+                return result
+            except Exception as e:
+                last_error = str(e)
+                if attempt < MAX_RETRIES:
+                    await asyncio.sleep(RETRY_DELAY)
+
+    return {"gcs_uri": gcs_uri, "error": last_error, "is_relevant": False}
 
 
-async def classify_folder_async(folder_prefix: str, workers: int = CONCURRENT_DEFAULT) -> list[dict]:
+async def classify_folder_async(folder_prefix: str, workers: int = CONCURRENT_DEFAULT) -> dict:
     image_blobs = list_images_in_folder(folder_prefix)
     if not image_blobs:
-        return []
+        return {"results": [], "elapsed_seconds": 0}
 
-    print(f"  {len(image_blobs)} images, downloading from GCS...")
-    images = []
-    for blob_name in image_blobs:
-        gcs_uri = f"gs://{GCS_BUCKET}/{blob_name}"
-        img_bytes = _download_image_bytes(blob_name)
-        images.append((gcs_uri, img_bytes))
+    t0 = time.time()
+
+    print(f"  {len(image_blobs)} images, downloading (parallel)...")
+    images = _download_images_parallel(image_blobs)
 
     print(f"  dispatching with {workers} async workers...")
     client = genai.Client(api_key=GEMINI_API_KEY)
@@ -129,16 +140,16 @@ async def classify_folder_async(folder_prefix: str, workers: int = CONCURRENT_DE
     semaphore = asyncio.Semaphore(workers)
     tasks = [classify_single_image(aclient, semaphore, uri, data) for uri, data in images]
     results = await asyncio.gather(*tasks)
-    return list(results)
+
+    elapsed = time.time() - t0
+    return {"results": list(results), "elapsed_seconds": round(elapsed, 1)}
 
 
-def classify_folder(folder_prefix: str, workers: int = CONCURRENT_DEFAULT) -> list[dict]:
-    """Sync wrapper around async classification."""
+def classify_folder(folder_prefix: str, workers: int = CONCURRENT_DEFAULT) -> dict:
     return asyncio.run(classify_folder_async(folder_prefix, workers))
 
 
 def upload_results(folder_prefix: str, results: list[dict]):
-    """Upload classification_results.json to the same GCS folder."""
     with tempfile.NamedTemporaryFile(
         mode="w", suffix=".json", delete=False, prefix="classify_"
     ) as f:
@@ -151,9 +162,33 @@ def upload_results(folder_prefix: str, results: list[dict]):
     return uri
 
 
+def _write_log(log_path: Path, source: str, category: str, folder_logs: list[dict],
+               grand: dict, total_elapsed: float):
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    lines = [
+        f"Image Classification Log — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Source: {source}  Category: {category or 'all'}",
+        f"Total: {grand['folders']} folders, {grand['images']} images, "
+        f"{grand['relevant']} relevant, {grand['not_relevant']} not relevant, "
+        f"{grand['errors']} errors, {total_elapsed:.0f}s",
+        "",
+    ]
+    for fl in folder_logs:
+        name = fl["folder"].split("/")[-1][:55]
+        lines.append(f"  {name:55s}  imgs:{fl['images']:3d}  rel:{fl['relevant']:3d}  "
+                      f"err:{fl['errors']}  {fl['elapsed_seconds']}s")
+        for err in fl.get("error_uris", []):
+            lines.append(f"    ERROR: {err}")
+    lines.append("")
+    log_path.write_text("\n".join(lines), encoding="utf-8")
+    print(f"\nLog written → {log_path}")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Classify extracted images using Gemini (async)")
     ap.add_argument("--source", help="GCS source folder (e.g. cushman)")
+    ap.add_argument("--category", choices=["bengaluru_data", "india_data"],
+                    help="Filter to only this category")
     ap.add_argument("--folder", help="Specific extracted_images folder prefix in GCS")
     ap.add_argument("--workers", type=int, default=CONCURRENT_DEFAULT,
                     help=f"Max concurrent Gemini calls (default: {CONCURRENT_DEFAULT})")
@@ -165,8 +200,9 @@ def main():
     if args.folder:
         folders = [args.folder]
     elif args.source:
-        folders = list_image_folders(args.source)
-        print(f"Found {len(folders)} image folder(s) for source '{args.source}'")
+        folders = list_image_folders(args.source, category=args.category)
+        print(f"Found {len(folders)} image folder(s) for '{args.source}'"
+              f"{f' ({args.category})' if args.category else ''}")
     else:
         sys.exit("Provide --source or --folder")
 
@@ -192,23 +228,41 @@ def main():
     print(f"\nClassifying {len(folders)} folder(s) with {args.workers} async workers\n")
 
     grand = {"folders": 0, "images": 0, "relevant": 0, "not_relevant": 0, "errors": 0}
+    folder_logs = []
+    t_start = time.time()
 
     for folder in folders:
         print(f"\n=== {folder.split('/')[-1]} ===")
-        results = classify_folder(folder, workers=args.workers)
+        out = classify_folder(folder, workers=args.workers)
+        results = out["results"]
 
         if results:
             uri = upload_results(folder, results)
             relevant = sum(1 for r in results if r.get("is_relevant"))
             errors = sum(1 for r in results if "error" in r)
+            not_rel = len(results) - relevant - errors
+            error_uris = [r["gcs_uri"] for r in results if "error" in r]
+
             print(f"  {len(results)} classified: {relevant} relevant, "
-                  f"{len(results) - relevant - errors} not relevant, {errors} errors")
+                  f"{not_rel} not relevant, {errors} errors  ({out['elapsed_seconds']}s)")
             print(f"  → {uri}")
+
             grand["folders"] += 1
             grand["images"] += len(results)
             grand["relevant"] += relevant
-            grand["not_relevant"] += len(results) - relevant - errors
+            grand["not_relevant"] += not_rel
             grand["errors"] += errors
+            folder_logs.append({
+                "folder": folder, "images": len(results), "relevant": relevant,
+                "errors": errors, "elapsed_seconds": out["elapsed_seconds"],
+                "error_uris": error_uris,
+            })
+
+    total_elapsed = time.time() - t_start
+
+    log_dir = Path("glm_postprocess/output")
+    log_path = log_dir / f"classify_log_{args.source}_{args.category or 'all'}.txt"
+    _write_log(log_path, args.source, args.category, folder_logs, grand, total_elapsed)
 
     print(f"\n{'=' * 50}")
     print("CLASSIFICATION SUMMARY")
@@ -218,6 +272,7 @@ def main():
     print(f"  Not relevant      : {grand['not_relevant']}")
     if grand["errors"]:
         print(f"  Errors            : {grand['errors']}")
+    print(f"  Total time        : {total_elapsed:.0f}s")
 
 
 if __name__ == "__main__":

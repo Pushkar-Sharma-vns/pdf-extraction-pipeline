@@ -449,20 +449,78 @@ Image naming: `page<N>_<label>_idx<I>.jpg` (1-based page, label type, item index
 Async Gemini classification — determines if each extracted image is relevant to real estate. Uses 20 concurrent async workers via `asyncio.Semaphore`.
 
 ```bash
-# Run Phase 2 standalone on already-uploaded images
-./venv/bin/python -m glm_postprocess.classifier --source jll --workers 20
+# Run Phase 2 standalone on already-uploaded images (bengaluru only)
+./venv/bin/python -m glm_postprocess.classifier --source jll --category bengaluru_data --workers 20
 
 # Or chain Phase 1 + Phase 2 in one command
-./venv/bin/python -m glm_postprocess.orchestrator --source jll --workers 8 --classify
+./venv/bin/python -m glm_postprocess.orchestrator --source jll --category bengaluru_data --workers 8 --classify
 
 # Classify-only mode (no extraction)
-./venv/bin/python -m glm_postprocess.orchestrator --classify-only --source jll
+./venv/bin/python -m glm_postprocess.orchestrator --classify-only --source jll --category bengaluru_data
 
 # Resume (skip folders that already have classification_results.json)
-./venv/bin/python -m glm_postprocess.classifier --source jll --resume
+./venv/bin/python -m glm_postprocess.classifier --source jll --category bengaluru_data --resume
+
+# Classify a single folder directly
+./venv/bin/python -m glm_postprocess.classifier --folder jll/extracted_pdfs/bengaluru_data/report_extracted_images
 ```
 
 Output: `classification_results.json` saved in the same GCS folder as images.
+
+Features: parallel GCS image download (threaded), retry with backoff (2 retries per image), per-folder timing, log file at `glm_postprocess/output/classify_log_<source>_<category>.txt`.
+
+---
+
+### RAG Enrichment Pipeline (`rag_enrichment/`)
+
+Page-wise chunking of Gemini-extracted markdown + contextual metadata extraction for Qdrant RAG.
+
+For each `_gemini.md` in GCS:
+1. Split into page-wise chunks using `<!-- page N -->` markers
+2. Create Gemini context cache with full document (pay input tokens once)
+3. Extract 25+ structured metadata fields per chunk via async parallel Gemini calls (10 concurrent, with retry)
+4. Upload `_rag_metadata.json` + `_rag_metadata.xlsx` to GCS
+
+Metadata includes: `contextual_situation`, `source_publisher`, `report_type`, `city`, `zone`, `micro_market`, `asset_class`, `economic_lens`, `content_intent`, `linked_assets`, and 15+ more strict enum fields.
+
+```bash
+# Process 1 report (test)
+./venv/bin/python -m rag_enrichment.orchestrator --source jll --limit 1 --local-output rag_enrichment/output
+
+# All bengaluru_data for a source
+./venv/bin/python -m rag_enrichment.orchestrator --source jll --category bengaluru_data
+
+# Resume interrupted run
+./venv/bin/python -m rag_enrichment.orchestrator --source jll --resume
+
+# Dry run
+./venv/bin/python -m rag_enrichment.orchestrator --source jll --dry-run
+```
+
+Output: `gs://<bucket>/<source>/extracted_pdfs/{bengaluru_data|india_data}/<pdfname>_rag_metadata.json` and `_rag_metadata.xlsx`
+
+Log: `rag_enrichment/output/rag_log_<source>_<category>.txt`
+
+---
+
+### Link Assets (`link_assets.py`)
+
+Matches classified images to RAG metadata records by PDF stem + page number, and replaces `linked_assets` with actual GCS image URLs + classification data.
+
+Requires both `_rag_metadata.json` (from RAG enrichment) and `classification_results.json` (from image classifier) to exist for a PDF.
+
+```bash
+# Link images for a source
+./venv/bin/python link_assets.py --source jll
+
+# Dry run — list which PDFs can be linked
+./venv/bin/python link_assets.py --source jll --dry-run
+
+# Limit to first N
+./venv/bin/python link_assets.py --source cushman --limit 5
+```
+
+Log: `link_assets_log_<source>_<category>.txt`
 
 ---
 
