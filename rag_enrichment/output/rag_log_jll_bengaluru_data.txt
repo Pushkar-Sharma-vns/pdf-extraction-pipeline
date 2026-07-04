@@ -1,0 +1,35 @@
+RAG Enrichment Log — 2026-05-27 13:50:20
+Source: jll  Category: bengaluru_data
+Total: 29/29 reports, 632 pages OK, 1 failed, 4369s
+
+  OK        25-insights-asia-pacific-capital-tracker                      pages:38  ok:38  fail:0  309.2s
+  OK        25-insights-india-data-centre-market-dynamics-report-h1-2025  pages:17  ok:17  fail:0  25.4s
+  OK        25-insights-india-retail-market-dynamics-q1-2025              pages:13  ok:13  fail:0  22.4s
+  OK        25-insights-pulse-real-estate-monthly-monitor-april-2025      pages:13  ok:13  fail:0  27.6s
+  OK        25-insights-pulse-real-estate-monthly-monitor-may-2025        pages:12  ok:12  fail:0  33.8s
+  OK        26-insights-asia-pacific-capital-tracker-q4-2025              pages:39  ok:39  fail:0  556.0s
+  OK        26-insights-asia-pacific-industrial-q4-25                     pages:25  ok:25  fail:0  49.9s
+  OK        26-insights-asia-pacific-office-market-dynamics-q4-2025       pages:37  ok:37  fail:0  63.9s
+  OK        26-insights-asia-pacific-residential-q4-2025                  pages:23  ok:23  fail:0  1318.3s
+  OK        26-insights-asia-pacific-retail-q4-25                         pages:33  ok:33  fail:0  293.3s
+  OK        26-insights-bengaluru-industrial-q4-2025                      pages:2  ok:2  fail:0  20.5s
+  OK        26-insights-bengaluru-mass-residential-market-dynamics-q4-20  pages:2  ok:2  fail:0  24.1s
+  OK        26-insights-bengaluru-office-market-dynamics-q4-2025          pages:1  ok:1  fail:0  12.8s
+  OK        26-insights-bengaluru-retail-market-dynamics-q4-2025          pages:2  ok:2  fail:0  20.2s
+  OK        26-insights-bsfi-industry-in-india                            pages:29  ok:29  fail:0  285.5s
+  OK        26-insights-india-monthly-monitor-march-2026                  pages:15  ok:15  fail:0  38.6s
+  OK        26-insights-india-residential-market-dynamics-q4-2025         pages:11  ok:11  fail:0  22.2s
+  OK        26-insights-india-retail-market-dynamics-q4-2025              pages:13  ok:13  fail:0  25.9s
+  OK        26-insights-indias-industrial-real-estate-evolution           pages:23  ok:23  fail:0  34.9s
+  OK        in_bengaluru_opportunities_in_challenges_dec_17               pages:11  ok:11  fail:0  32.1s
+  PARTIAL   jll-a-transformational-journey                                pages:36  ok:35  fail:1  791.1s
+           page 5: 1 validation error for ContextualRetrievalPipelineSchema
+  Invalid JSON: EOF while parsing a value a
+  OK        jll-cii-unlocking-visakhapatnams-tourism-sector               pages:31  ok:31  fail:0  37.9s
+  OK        jll-game-on                                                   pages:44  ok:44  fail:0  42.8s
+  OK        jll-india-retail-evolving-to-a-new-dawn-updated               pages:41  ok:41  fail:0  48.3s
+  OK        jll-india-retail-market-trends-and-dynamics-january-to-septe  pages:19  ok:19  fail:0  27.5s
+  OK        jll-naredco-mumbai-residential-market                         pages:42  ok:42  fail:0  61.7s
+  OK        jll-pulse-real-estate-monthly-monitor-february-2025           pages:13  ok:13  fail:0  33.1s
+  OK        jll-unlocking-opportunities-with-infrastructure-development   pages:33  ok:33  fail:0  44.4s
+  OK        jlls-latest-report-land-transactions-in-india                 pages:15  ok:15  fail:0  36.1s

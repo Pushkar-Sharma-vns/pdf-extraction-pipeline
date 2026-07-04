@@ -1,0 +1,5 @@
+Image Classification Log — 2026-05-27 14:11:27
+Source: None  Category: all
+Total: 1 folders, 38 images, 38 relevant, 0 not relevant, 0 errors, 19s
+
+  25-insights-pulse-real-estate-monthly-monitor-may-2025_  imgs: 38  rel: 38  err:0  18.2s

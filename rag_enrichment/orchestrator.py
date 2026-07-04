@@ -69,9 +69,18 @@ def _process_one(source: str, entry: dict, local_output: Path | None = None) -> 
 
         stats = process_report(stem, markdown, chunks)
         records = stats["records"]
+        cost = stats.get("cost", {})
 
+        cost_str = ""
+        if cost.get("total_usd"):
+            cost_str = (
+                f" | ${cost['total_usd']:.4f} "
+                f"(in={cost['uncached_input_tokens']} "
+                f"cached={cost['cached_read_tokens']} "
+                f"out={cost['output_tokens']})"
+            )
         print(f"  [{stem}] {stats['succeeded']}/{stats['total_pages']} OK, "
-              f"{stats['failed']} failed, {stats['elapsed_seconds']}s")
+              f"{stats['failed']} failed, {stats['elapsed_seconds']}s{cost_str}")
 
         if records:
             json_path = tmp / f"{stem}_rag_metadata.json"
@@ -105,6 +114,7 @@ def _process_one(source: str, entry: dict, local_output: Path | None = None) -> 
         "failed": stats["failed"],
         "failed_pages": stats["failed_pages"],
         "elapsed_seconds": stats["elapsed_seconds"],
+        "cost": stats.get("cost", {}),
     }
 
 
@@ -117,13 +127,19 @@ def _write_log(log_path: Path, source: str, category: str, pdf_logs: list[dict],
         f"Total: {grand['reports']}/{grand['total_reports']} reports, "
         f"{grand['succeeded']} pages OK, {grand['failed']} failed, "
         f"{total_elapsed:.0f}s",
+        f"Cost: ${grand['cost_usd']:.4f} "
+        f"(uncached_in={grand['uncached_input_tokens']} "
+        f"cached={grand['cached_read_tokens']} "
+        f"out={grand['output_tokens']})",
         "",
     ]
     for p in pdf_logs:
         status = "OK" if p["failed"] == 0 else "PARTIAL"
+        cost = p.get("cost", {})
+        cost_str = f"  ${cost.get('total_usd', 0):.4f}" if cost.get("total_usd") else ""
         lines.append(f"  {status:8s}  {p['stem'][:60]:60s}  "
                       f"pages:{p['pages']}  ok:{p['succeeded']}  "
-                      f"fail:{p['failed']}  {p['elapsed_seconds']}s")
+                      f"fail:{p['failed']}  {p['elapsed_seconds']}s{cost_str}")
         for fp in p.get("failed_pages", []):
             lines.append(f"           page {fp['page']}: {fp['error'][:100]}")
     lines.append("")
@@ -172,7 +188,8 @@ def main():
     print(f"\nProcessing {len(entries)} report(s) (async, 10 concurrent chunks)\n")
 
     grand = {"reports": 0, "total_reports": len(entries),
-             "pages": 0, "succeeded": 0, "failed": 0}
+             "pages": 0, "succeeded": 0, "failed": 0, "cost_usd": 0.0,
+             "uncached_input_tokens": 0, "cached_read_tokens": 0, "output_tokens": 0}
     pdf_logs = []
     t_start = time.time()
 
@@ -184,6 +201,11 @@ def main():
             grand["pages"] += stats["pages"]
             grand["succeeded"] += stats["succeeded"]
             grand["failed"] += stats["failed"]
+            cost = stats.get("cost", {})
+            grand["cost_usd"] += cost.get("total_usd", 0)
+            grand["uncached_input_tokens"] += cost.get("uncached_input_tokens", 0)
+            grand["cached_read_tokens"] += cost.get("cached_read_tokens", 0)
+            grand["output_tokens"] += cost.get("output_tokens", 0)
             pdf_logs.append(stats)
         except Exception:
             print(f"  FAILED {entry['stem']}:", file=sys.stderr)
@@ -206,6 +228,9 @@ def main():
     print(f"  Succeeded         : {grand['succeeded']}")
     print(f"  Failed            : {grand['failed']}")
     print(f"  Total time        : {total_elapsed:.0f}s")
+    print(f"  Total cost        : ${grand['cost_usd']:.4f}")
+    print(f"  Tokens            : uncached_in={grand['uncached_input_tokens']} "
+          f"cached={grand['cached_read_tokens']} out={grand['output_tokens']}")
 
 
 if __name__ == "__main__":

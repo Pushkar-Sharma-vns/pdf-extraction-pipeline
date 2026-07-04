@@ -1,0 +1,23 @@
+Link Assets Log — 2026-05-27 23:02:17
+Source: jll  Category: bengaluru_data
+Total: 18 PDFs, 227 pages linked, 458 images attached, 25s
+
+  OK  25-insights-asia-pacific-capital-tracker                 pages:35/38  imgs:71
+  FAIL  25-insights-asia-pacific-capital-tracker-autumn-2025     'str' object has no attribute 'get'
+  OK  25-insights-india-data-centre-market-dynamics-report-h1  pages:15/17  imgs:19
+  OK  25-insights-india-retail-market-dynamics-q1-2025         pages:6/13  imgs:8
+  OK  25-insights-pulse-real-estate-monthly-monitor-april-202  pages:11/13  imgs:37
+  OK  25-insights-pulse-real-estate-monthly-monitor-may-2025   pages:11/12  imgs:38
+  OK  26-insights-asia-pacific-capital-tracker-q4-2025         pages:24/39  imgs:14
+  OK  26-insights-bengaluru-industrial-q4-2025                 pages:2/2  imgs:3
+  OK  26-insights-bengaluru-mass-residential-market-dynamics-  pages:2/2  imgs:5
+  OK  26-insights-bengaluru-office-market-dynamics-q4-2025     pages:1/1  imgs:4
+  OK  26-insights-bengaluru-retail-market-dynamics-q4-2025     pages:2/2  imgs:5
+  OK  26-insights-bsfi-industry-in-india                       pages:19/29  imgs:31
+  OK  jll-game-on                                              pages:16/44  imgs:39
+  OK  jll-india-retail-evolving-to-a-new-dawn-updated          pages:19/41  imgs:38
+  OK  jll-india-retail-market-trends-and-dynamics-january-to-  pages:14/19  imgs:22
+  OK  jll-naredco-mumbai-residential-market                    pages:28/42  imgs:47
+  OK  jll-pulse-real-estate-monthly-monitor-february-2025      pages:11/13  imgs:32
+  OK  jll-unlocking-opportunities-with-infrastructure-develop  pages:0/33  imgs:18
+  OK  jlls-latest-report-land-transactions-in-india            pages:11/15  imgs:27

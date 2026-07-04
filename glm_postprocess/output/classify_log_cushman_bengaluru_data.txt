@@ -1,0 +1,35 @@
+Image Classification Log — 2026-05-27 02:58:40
+Source: cushman  Category: bengaluru_data
+Total: 31 folders, 138 images, 122 relevant, 16 not relevant, 0 errors, 229s
+
+  budget-report-2024_-v3_extracted_images                  imgs: 14  rel:  8  err:0  7.4s
+  cw-report_-union-budget-2021-22_extracted_images         imgs:  8  rel:  5  err:0  12.1s
+  emergence-of-chengalpattu-as-a-satellite-town-to-chenna  imgs:  1  rel:  1  err:0  9.4s
+  gb-23915_report_rebt-cii_18_02_25_extracted_images       imgs:  1  rel:  0  err:0  3.4s
+  india---bangalore---retail-q2-2025_extracted_images      imgs:  5  rel:  5  err:0  6.7s
+  india---bangalore-retail-mb_q3-2025_extracted_images     imgs:  3  rel:  3  err:0  6.5s
+  india---bengaluru---industrial-h2-2024__extracted_image  imgs:  2  rel:  2  err:0  5.2s
+  india---bengaluru---industrial-h2-2025_final_extracted_  imgs:  2  rel:  2  err:0  5.3s
+  india---bengaluru---logistics-industrial_h1-2025_extrac  imgs:  2  rel:  2  err:0  4.6s
+  india---bengaluru---office-q1-2025_extracted_images      imgs:  4  rel:  4  err:0  7.4s
+  india---bengaluru---office-q2-2025_v2_extracted_images   imgs:  5  rel:  5  err:0  6.9s
+  india---bengaluru---office-q4-2025_extracted_images      imgs:  4  rel:  4  err:0  6.6s
+  india---pune---office-q1-2025_74_extracted_images        imgs:  3  rel:  3  err:0  4.9s
+  india---pune---office-q1-2025_extracted_images           imgs:  3  rel:  3  err:0  4.4s
+  india--bangalore--retail--q1-2025_extracted_images       imgs:  4  rel:  4  err:0  8.2s
+  india--bengaluru--residential-q1-2025_extracted_images   imgs:  5  rel:  5  err:0  5.9s
+  india--bengaluru--residential-q1-2026_final_extracted_i  imgs:  7  rel:  7  err:0  10.2s
+  india--bengaluru--residential-q2-2025_v2_extracted_imag  imgs:  4  rel:  4  err:0  9.8s
+  india--bengaluru--residential-q3-2025__extracted_images  imgs:  6  rel:  6  err:0  7.5s
+  india--bengaluru--residential-q4-2025-final__extracted_  imgs:  6  rel:  6  err:0  8.0s
+  india--bengaluru_industrial---h2-2023_extracted_images   imgs:  2  rel:  2  err:0  5.6s
+  india--mb-investment-q1-2026_final__extracted_images     imgs:  5  rel:  4  err:0  5.7s
+  india--mb-investment-q3-2025_final__extracted_images     imgs:  6  rel:  6  err:0  6.5s
+  india--mb-investment-q4-2025_final__extracted_images     imgs:  7  rel:  5  err:0  9.5s
+  india-bengaluru-office-q1-2026_extracted_images          imgs:  4  rel:  3  err:0  9.0s
+  india-bengaluru-office-q3-2025_extracted_images          imgs:  4  rel:  3  err:0  5.0s
+  india-bengaluru-retail-q1-2026_extracted_images          imgs:  4  rel:  4  err:0  8.2s
+  india-bengaluru-retail-q4-2024_extracted_images          imgs:  4  rel:  4  err:0  5.6s
+  india-bengaluru_mb_h1-2024_fin-ind_extracted_images      imgs:  3  rel:  3  err:0  5.1s
+  india-capital-markets-mb-q2-2025_extracted_images        imgs:  5  rel:  5  err:0  4.9s
+  india-capital-markets-q1-2025_extracted_images           imgs:  5  rel:  4  err:0  6.8s

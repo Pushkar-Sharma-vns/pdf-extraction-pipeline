@@ -106,28 +106,41 @@ def _process_gcs_entry(entry: dict, source: str, min_size: int, results_root: Pa
     stem = entry["stem"]
     category = entry["category"]
     pdf_blob = entry["pdf_blob"]
+    t0 = time.time()
+    timings = {}
 
     with tempfile.TemporaryDirectory(prefix="glm_gcs_") as td:
         tmp = Path(td)
+
+        t1 = time.time()
         local_pdf = download_blob(pdf_blob, tmp / f"{stem}.pdf")
-        _tprint(f"  [{stem}] downloaded from {pdf_blob}")
+        timings["download"] = round(time.time() - t1, 1)
+        _tprint(f"  [{stem}] downloaded ({timings['download']}s)")
 
+        t1 = time.time()
         run_glmocr(local_pdf, results_root)
-        _tprint(f"  [{stem}] glmocr complete")
+        timings["glmocr"] = round(time.time() - t1, 1)
+        _tprint(f"  [{stem}] glmocr complete ({timings['glmocr']}s)")
 
+        t1 = time.time()
         pdf_dir = results_root / stem
         stats = process_pdf_dir(pdf_dir, min_size=min_size)
-        _tprint(f"  [{stem}] extracted {stats['saved']} images")
+        timings["extract"] = round(time.time() - t1, 1)
+        _tprint(f"  [{stem}] extracted {stats['saved']} images ({timings['extract']}s)")
 
         if stats["saved"] > 0:
+            t1 = time.time()
             uploaded = upload_images(stats["out_dir"], source, category, stem)
-            _tprint(f"  [{stem}] uploaded {uploaded} images → {category}/")
+            timings["upload"] = round(time.time() - t1, 1)
+            _tprint(f"  [{stem}] uploaded {uploaded} images → {category}/ ({timings['upload']}s)")
             stats["uploaded"] = uploaded
         else:
             stats["uploaded"] = 0
 
         stats["category"] = category
         stats["stem"] = stem
+        stats["timings"] = timings
+        stats["total_seconds"] = round(time.time() - t0, 1)
 
     return stats
 
@@ -220,16 +233,6 @@ def _run_gcs(args):
     if not entries:
         sys.exit("No extracted PDFs found. Run gemini_ocr pipeline first.")
 
-    if args.limit and args.limit < len(entries):
-        entries = entries[:args.limit]
-        print(f"Limited to first {args.limit} PDF(s)")
-
-    if args.dry_run:
-        print(f"\nDry run — {len(entries)} PDF(s):")
-        for e in entries:
-            print(f"  {e['category']:16s}  {e['stem']}")
-        return
-
     if args.resume:
         before = len(entries)
         entries = [
@@ -241,9 +244,23 @@ def _run_gcs(args):
             print("Nothing to do.")
             return
 
+    if args.limit and args.limit < len(entries):
+        entries = entries[:args.limit]
+        print(f"Limited to first {args.limit} PDF(s)")
+
+    if args.dry_run:
+        print(f"\nDry run — {len(entries)} PDF(s):")
+        for e in entries:
+            print(f"  {e['category']:16s}  {e['stem']}")
+        return
+
     print(f"\nProcessing {len(entries)} PDF(s)  (min_size={args.min_size})\n")
 
+    from datetime import datetime
+
     grand = {"saved": 0, "uploaded": 0, "pdfs": 0, "bengaluru_data": 0, "india_data": 0}
+    pdf_logs = []
+    t_batch_start = time.time()
 
     def _do(entry):
         return entry, _process_gcs_entry(entry, source, args.min_size, args.results_root)
@@ -260,9 +277,12 @@ def _run_gcs(args):
                     grand["pdfs"] += 1
                     if stats["category"] in grand:
                         grand[stats["category"]] += 1
-                except Exception:
+                    pdf_logs.append(stats)
+                except Exception as e:
                     _tprint(f"  FAILED {entry['stem']}:", file=sys.stderr)
                     traceback.print_exc()
+                    pdf_logs.append({"stem": entry["stem"], "saved": 0, "uploaded": 0,
+                                     "total_seconds": 0, "timings": {}, "error": str(e)})
     else:
         for entry in entries:
             print(f"\n=== {entry['stem']} ({entry['category']}) ===")
@@ -273,9 +293,12 @@ def _run_gcs(args):
                 grand["pdfs"] += 1
                 if stats["category"] in grand:
                     grand[stats["category"]] += 1
-            except Exception:
+                pdf_logs.append(stats)
+            except Exception as e:
                 print(f"  FAILED {entry['stem']}:", file=sys.stderr)
                 traceback.print_exc()
+                pdf_logs.append({"stem": entry["stem"], "saved": 0, "uploaded": 0,
+                                 "total_seconds": 0, "timings": {}, "error": str(e)})
 
     # Phase 2: classify if requested
     if args.classify and grand["uploaded"] > 0:
@@ -287,12 +310,49 @@ def _run_gcs(args):
         for entry in entries:
             folder = f"{source}/extracted_pdfs/{entry['category']}/{entry['stem']}_extracted_images"
             if list_images_in_folder(folder):
-                results = classify_folder(folder, workers=args.classify_workers)
+                out = classify_folder(folder, workers=args.classify_workers)
+                results = out["results"] if isinstance(out, dict) else out
                 if results:
                     upload_results(folder, results)
                     relevant = sum(1 for r in results if r.get("is_relevant"))
+                    classify_time = out.get("elapsed_seconds", 0) if isinstance(out, dict) else 0
                     _tprint(f"  [{entry['stem']}] {len(results)} classified: "
-                            f"{relevant} relevant")
+                            f"{relevant} relevant ({classify_time}s)")
+                    for pl in pdf_logs:
+                        if pl.get("stem") == entry["stem"]:
+                            pl["classify_images"] = len(results)
+                            pl["classify_relevant"] = relevant
+                            pl["classify_seconds"] = classify_time
+
+    total_elapsed = time.time() - t_batch_start
+
+    # Write log file
+    log_dir = Path("glm_postprocess/output")
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"orchestrator_log_{source}_{args.category or 'all'}.txt"
+    log_lines = [
+        f"GLM Postprocess Log — {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Source: {source}  Category: {args.category or 'all'}",
+        f"Total: {grand['pdfs']}/{len(entries)} PDFs, {grand['saved']} images extracted, "
+        f"{grand['uploaded']} uploaded, {total_elapsed:.0f}s",
+        "",
+    ]
+    for pl in pdf_logs:
+        status = "FAIL" if pl.get("error") else "OK"
+        t = pl.get("timings", {})
+        line = (f"  {status:4s}  {pl.get('stem','?')[:55]:55s}  "
+                f"imgs:{pl.get('saved',0):3d}  up:{pl.get('uploaded',0):3d}  "
+                f"{pl.get('total_seconds',0)}s")
+        if t:
+            line += f"  [dl:{t.get('download',0)}s ocr:{t.get('glmocr',0)}s ext:{t.get('extract',0)}s up:{t.get('upload',0)}s]"
+        if pl.get("classify_images"):
+            line += f"  cls:{pl['classify_relevant']}/{pl['classify_images']} {pl.get('classify_seconds',0)}s"
+        log_lines.append(line)
+        if pl.get("error"):
+            log_lines.append(f"         ERROR: {pl['error'][:100]}")
+    log_lines.append("")
+    log_path.write_text("\n".join(log_lines))
+    print(f"\nLog written → {log_path}")
 
     print(f"\n{'=' * 50}")
     print("GCS PIPELINE SUMMARY")
@@ -301,6 +361,7 @@ def _run_gcs(args):
     print(f"  Images uploaded  : {grand['uploaded']}")
     print(f"  bengaluru_data   : {grand['bengaluru_data']}")
     print(f"  india_data       : {grand['india_data']}")
+    print(f"  Total time       : {total_elapsed:.0f}s")
 
 
 def main():

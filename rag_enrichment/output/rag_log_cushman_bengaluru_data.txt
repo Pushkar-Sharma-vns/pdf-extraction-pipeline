@@ -1,0 +1,20 @@
+RAG Enrichment Log — 2026-05-28 11:03:17
+Source: cushman  Category: bengaluru_data
+Total: 6/10 reports, 74 pages OK, 5 failed, 1254s
+Cost: $0.1357 (uncached_in=69965 cached=830614 out=35898)
+
+  OK        fast-five-facts-q1-2025_bengaluru                             pages:0  ok:0  fail:0  0s
+  OK        fast-five-facts-q2-2025-_-bengaluru                           pages:0  ok:0  fail:0  0s
+  OK        fast-five-facts-q3-2025-bengaluru                             pages:0  ok:0  fail:0  0s
+  PARTIAL   global-capability-center-report-2020                          pages:17  ok:15  fail:2  292.7s  $0.0301
+           page 3: timeout after 90s (attempt 3/3)
+           page 4: timeout after 90s (attempt 3/3)
+  OK        indiadatacentreupdateh12025v4                                 pages:15  ok:15  fail:0  113.9s  $0.0240
+  OK        managed-office-infographics                                   pages:0  ok:0  fail:0  0s
+  PARTIAL   outlook-2024-report                                           pages:27  ok:26  fail:1  280.2s  $0.0489
+           page 9: timeout after 90s (attempt 3/3)
+  OK        q2-2021-india-office-market-report                            pages:0  ok:0  fail:0  0s
+  PARTIAL   union-budget-2025_26                                          pages:10  ok:9  fail:1  279.7s  $0.0164
+           page 6: timeout after 90s (attempt 3/3)
+  PARTIAL   unionbudget_2026                                              pages:10  ok:9  fail:1  279.8s  $0.0163
+           page 7: timeout after 90s (attempt 3/3)

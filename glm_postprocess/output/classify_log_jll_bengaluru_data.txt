@@ -1,0 +1,17 @@
+Image Classification Log — 2026-05-27 02:03:31
+Source: jll  Category: bengaluru_data
+Total: 13 folders, 367 images, 309 relevant, 58 not relevant, 0 errors, 209s
+
+  25-insights-asia-pacific-capital-tracker-autumn-2025_ex  imgs: 73  rel: 72  err:0  32.2s
+  25-insights-asia-pacific-capital-tracker_extracted_imag  imgs: 71  rel: 71  err:0  36.4s
+  25-insights-india-data-centre-market-dynamics-report-h1  imgs: 38  rel: 19  err:0  17.1s
+  25-insights-india-retail-market-dynamics-q1-2025_extrac  imgs: 12  rel:  8  err:0  7.8s
+  25-insights-pulse-real-estate-monthly-monitor-april-202  imgs: 37  rel: 37  err:0  15.2s
+  26-insights-asia-pacific-capital-tracker-q4-2025_extrac  imgs: 14  rel: 14  err:0  6.7s
+  26-insights-bengaluru-industrial-q4-2025_extracted_imag  imgs:  3  rel:  3  err:0  6.2s
+  26-insights-bengaluru-mass-residential-market-dynamics-  imgs:  5  rel:  5  err:0  7.3s
+  26-insights-bengaluru-office-market-dynamics-q4-2025_ex  imgs:  4  rel:  4  err:0  6.7s
+  26-insights-bengaluru-retail-market-dynamics-q4-2025_ex  imgs:  5  rel:  5  err:0  11.4s
+  26-insights-bsfi-industry-in-india_extracted_images      imgs: 44  rel: 31  err:0  26.5s
+  jll-india-retail-market-trends-and-dynamics-january-to-  imgs: 38  rel: 22  err:0  16.1s
+  jll-unlocking-opportunities-with-infrastructure-develop  imgs: 23  rel: 18  err:0  12.0s

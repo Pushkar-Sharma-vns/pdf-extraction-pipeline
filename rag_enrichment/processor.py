@@ -92,15 +92,18 @@ async def _process_chunk(aclient, semaphore, cache_name, pdf_name, idx, total, c
         for attempt in range(MAX_RETRIES + 1):
             try:
                 t_start = time.monotonic()
-                response = await aclient.models.generate_content(
-                    model=MODEL_ID,
-                    contents=prompt,
-                    config=types.GenerateContentConfig(
-                        cached_content=cache_name,
-                        response_mime_type="application/json",
-                        response_schema=ContextualRetrievalPipelineSchema,
-                        temperature=0.0,
-                    )
+                response = await asyncio.wait_for(
+                    aclient.models.generate_content(
+                        model=MODEL_ID,
+                        contents=prompt,
+                        config=types.GenerateContentConfig(
+                            cached_content=cache_name,
+                            response_mime_type="application/json",
+                            response_schema=ContextualRetrievalPipelineSchema,
+                            temperature=0.0,
+                        )
+                    ),
+                    timeout=90,
                 )
                 api_time = time.monotonic() - t_start
 
@@ -119,8 +122,13 @@ async def _process_chunk(aclient, semaphore, cache_name, pdf_name, idx, total, c
                 print(f"    chunk {idx + 1}/{total} (p{page}) OK {api_time:.1f}s{cost_str}")
                 return {"status": "ok", "row": row, "cost": cost_info}
 
+            except asyncio.TimeoutError:
+                last_error = f"timeout after 90s (attempt {attempt + 1}/{MAX_RETRIES + 1})"
+                print(f"    chunk {idx + 1}/{total} (p{page}) TIMEOUT attempt {attempt + 1}")
+                if attempt < MAX_RETRIES:
+                    await asyncio.sleep(RETRY_DELAY)
             except Exception as e:
-                last_error = str(e)
+                last_error = str(e) or type(e).__name__
                 if attempt < MAX_RETRIES:
                     await asyncio.sleep(RETRY_DELAY)
 

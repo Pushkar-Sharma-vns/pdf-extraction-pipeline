@@ -1,0 +1,9 @@
+GLM Postprocess Log — 2026-05-27 23:01:39
+Source: jll  Category: bengaluru_data
+Total: 5/5 PDFs, 321 images extracted, 321 uploaded, 950s
+
+  OK    jll-game-on                                              imgs:102  up:102  221.9s  [dl:0.5s ocr:189.9s ext:0.4s up:31.1s]  cls:39/102 39.4s
+  OK    jll-india-retail-evolving-to-a-new-dawn-updated          imgs: 92  up: 92  235.6s  [dl:0.4s ocr:206.8s ext:0.4s up:28.0s]  cls:39/92 33.8s
+  OK    jll-naredco-mumbai-residential-market                    imgs: 55  up: 55  199.2s  [dl:0.5s ocr:179.8s ext:0.3s up:18.6s]  cls:47/55 24.5s
+  OK    jll-pulse-real-estate-monthly-monitor-february-2025      imgs: 35  up: 35  86.0s  [dl:0.5s ocr:74.6s ext:0.2s up:10.8s]  cls:32/35 14.7s
+  OK    jlls-latest-report-land-transactions-in-india            imgs: 37  up: 37  74.6s  [dl:0.5s ocr:60.3s ext:0.1s up:13.7s]  cls:27/37 15.1s

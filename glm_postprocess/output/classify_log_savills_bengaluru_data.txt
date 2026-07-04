@@ -1,0 +1,6 @@
+Image Classification Log — 2026-05-27 12:19:22
+Source: savills  Category: bengaluru_data
+Total: 2 folders, 18 images, 15 relevant, 3 not relevant, 0 errors, 75s
+
+  2019-12-07-Bangalore-Office-2H2019_extracted_images      imgs:  6  rel:  6  err:0  6.4s
+  2024-11-14-Asia-Pacific-Office-Market-Spotlight-Novembe  imgs: 12  rel:  9  err:0  67.7s

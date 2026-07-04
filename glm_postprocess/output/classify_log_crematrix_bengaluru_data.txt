@@ -1,0 +1,7 @@
+Image Classification Log — 2026-05-27 12:17:31
+Source: crematrix  Category: bengaluru_data
+Total: 3 folders, 19 images, 14 relevant, 5 not relevant, 0 errors, 34s
+
+  Best_of_Best_2023_extracted_images                       imgs:  4  rel:  4  err:0  7.4s
+  Great_Retail_Indian_Pyramids_GRIP_Unlocked_extracted_im  imgs:  8  rel:  4  err:0  8.3s
+  Q2_2022_IndiaOffice_Report_CRE_Matrix_extracted_images   imgs:  7  rel:  6  err:0  16.4s
